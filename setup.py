@@ -1,0 +1,26 @@
+""" Setup file.
+"""
+import os
+from setuptools import setup, find_packages
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(here, 'README')) as f:
+    README = f.read()
+
+
+setup(name='signing_clients',
+    version=0.1,
+    description="Applications signature/manifest manipulator and receipt verifier",
+    long_description=README,
+    classifiers=[
+        "Programming Language :: Python",
+    ],
+    keywords="web services",
+    author='Ryan Tilder',
+    author_email="service-dev@mozilla.com",
+    url="http://mozilla.org",
+    packages=find_packages(),
+    include_package_data=True,
+    zip_safe=False
+)

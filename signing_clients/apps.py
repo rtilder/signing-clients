@@ -21,6 +21,15 @@ headers_re = re.compile(
           \s*:\s*(.*)""", re.X | re.I)
 directory_re = re.compile(r"[\\/]$")
 
+# Python 2.6 and earlier doesn't have context manager support
+ZipFile = zipfile.ZipFile
+if not hasattr(zipfile.ZipFile, "__enter__"):
+    class ZipFile(zipfile.ZipFile):
+        def __enter__(self):
+            return self
+        def __exit__(self, type, value, traceback):
+            self.close()
+
 
 def file_key(zinfo):
     '''
@@ -177,7 +186,7 @@ class JarExtractor(object):
         self._manifest = None
         self._sig = None
 
-        with zipfile.ZipFile(self.inpath, 'r') as zin:
+        with ZipFile(self.inpath, 'r') as zin:
             for f in sorted(zin.filelist, key=file_key):
                 if directory_re.search(f.filename):
                     continue

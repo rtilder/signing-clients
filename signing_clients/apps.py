@@ -106,6 +106,8 @@ class Manifest(list):
             if line == '':
                 continue
             match = headers_re.match(line)
+            if not match:
+                continue
             header = match.group(1).lower()
             value = match.group(2)
             if '-version' == header[-8:]:

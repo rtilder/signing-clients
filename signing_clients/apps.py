@@ -224,10 +224,12 @@ class JarExtractor(object):
         return self.signatures.header
 
     def make_signed(self, signature, outpath=None):
-        if self.outpath is None and outpath is None:
+        outpath = outpath or self.outpath
+        if not outpath:
             raise IOError("No output file specified")
-        with zipfile.ZipFile(self.inpath, 'r') as zin:
-            with zipfile.ZipFile(outpath, 'w', zipfile.ZIP_DEFLATED) as zout:
+
+        with ZipFile(self.inpath, 'r') as zin:
+            with ZipFile(outpath, 'w', zipfile.ZIP_DEFLATED) as zout:
                 # zigbert.rsa *MUST* be the first file in the archive to take
                 # advantage of Firefox's optimized downloading of XPIs
                 zout.writestr("META-INF/zigbert.rsa", signature)

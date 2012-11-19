@@ -177,7 +177,7 @@ class JarExtractor(object):
         self._manifest = None
         self._sig = None
 
-        with zipfile.ZipFile(self.inpath, 'r') as zin:
+        with ZipFile(self.inpath, 'r') as zin:
             for f in sorted(zin.filelist, key=file_key):
                 if directory_re.search(f.filename):
                     continue
@@ -224,8 +224,8 @@ class JarExtractor(object):
                 # zigbert.rsa *MUST* be the first file in the archive to take
                 # advantage of Firefox's optimized downloading of XPIs
                 zout.writestr("META-INF/zigbert.rsa", signature)
-                for f in sorted(zin.namelist()):
-                    zout.writestr(f.filename, zout.read(f.filename))
+                for f in sorted(zin.infolist()):
+                    zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
                 zout.writestr("META-INF/zigbert.sf", str(self.signatures))
 

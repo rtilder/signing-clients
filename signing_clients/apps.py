@@ -166,7 +166,7 @@ class Signature(Manifest):
     # So we can omit the individual signature sections
     def __str__(self):
         if self.omit_individual_sections:
-            return str(self.header)
+            return str(self.header) + "\n"
         return super(Signature, self).__str__()
 
 
@@ -223,7 +223,7 @@ class JarExtractor(object):
     def signature(self):
         # Returns only the x-Digest-Manifest signature and omits the individual
         # section signatures
-        return self.signatures.header
+        return self.signatures.header + "\n"
 
     def make_signed(self, signature, outpath=None):
         outpath = outpath or self.outpath

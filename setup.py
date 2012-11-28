@@ -10,7 +10,7 @@ with open(os.path.join(here, 'README.md')) as f:
 
 
 setup(name='signing_clients',
-    version='0.1.3',
+    version='0.1.4',
     description="Applications signature/manifest manipulator and receipt verifier",
     long_description=README,
     classifiers=[
@@ -22,5 +22,6 @@ setup(name='signing_clients',
     url="http://mozilla.org",
     packages=find_packages(),
     include_package_data=True,
-    zip_safe=False
+    zip_safe=False,
+    test_suite='signing_clients.tests'
 )

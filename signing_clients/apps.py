@@ -7,12 +7,13 @@
 from base64 import b64encode, b64decode
 from cStringIO import StringIO
 import hashlib
-from M2Crypto.BIO import MemoryBuffer
-from M2Crypto.SMIME import SMIME, PKCS7_DETACHED, PKCS7_BINARY
 import itertools
 import os.path
 import re
 import zipfile
+
+from M2Crypto.BIO import MemoryBuffer
+from M2Crypto.SMIME import SMIME, PKCS7_DETACHED, PKCS7_BINARY
 
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
@@ -118,8 +119,9 @@ class Manifest(list):
         header = ''  # persistent and used for accreting continuations
         lineno = 0
         # JAR spec requires two newlines at the end of a buffer to be parsed
-        # and states that they should be appended if necessary
-        for line in itertools.chain(fest.readlines(), ("\n")):
+        # and states that they should be appended if necessary.  Just throw
+        # two newlines on every time because it won't hurt anything.
+        for line in itertools.chain(fest.readlines(), "\n" * 2):
             lineno += 1
             line = line.rstrip()
             if len(line) > 72:
@@ -130,6 +132,7 @@ class Manifest(list):
                 if item:
                     items.append(Section(item.pop('name'), **item))
                     item = {}
+                header = ''
                 continue
             # continuation?
             continued = continuation_re.match(line)

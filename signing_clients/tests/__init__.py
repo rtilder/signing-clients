@@ -6,7 +6,7 @@
 
 import unittest
 
-from signing_clients.apps import JarExtractor
+from signing_clients.apps import Manifest, JarExtractor
 
 
 MANIFEST = """Manifest-Version: 1.0
@@ -39,6 +39,14 @@ MD5-Digest: YHTqD4SINsoZngWvbGIhAA==
 SHA1-Digest: lys436ZGYKrHY6n57Iy/EyF5FuI=
 """
 
+CONTINUED_MANIFEST = MANIFEST + """
+Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-te
+ st-file
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
+SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
+"""
+
 
 class SigningTest(unittest.TestCase):
 
@@ -65,3 +73,7 @@ class SigningTest(unittest.TestCase):
     def test_04_signatures_omit(self):
         extracted = self._extract(True)
         self.assertEqual(str(extracted.signatures), SIGNATURE)
+
+    def test_05_continuation(self):
+        manifest = Manifest.parse(CONTINUED_MANIFEST)
+        self.assertEqual(str(manifest), CONTINUED_MANIFEST)

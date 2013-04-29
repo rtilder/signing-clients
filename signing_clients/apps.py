@@ -7,18 +7,21 @@
 from base64 import b64encode, b64decode
 from cStringIO import StringIO
 import hashlib
-from M2Crypto.BIO import MemoryBuffer
-from M2Crypto.SMIME import SMIME, PKCS7_DETACHED, PKCS7_BINARY
+import itertools
 import os.path
 import re
 import zipfile
+
+from M2Crypto.BIO import MemoryBuffer
+from M2Crypto.SMIME import SMIME, PKCS7_DETACHED, PKCS7_BINARY
 
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
           |Name
           |Digest-Algorithms
-          |(?:MD5|SHA1)-Digest(?:-Manifest))
+          |(?:MD5|SHA1)-Digest(?:-Manifest)?)
           \s*:\s*(.*)""", re.X | re.I)
+continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
 
 # Python 2.6 and earlier doesn't have context manager support
@@ -29,6 +32,10 @@ if not hasattr(zipfile.ZipFile, "__enter__"):
             return self
         def __exit__(self, type, value, traceback):
             self.close()
+
+
+class ParsingError(Exception):
+    pass
 
 
 def file_key(zinfo):
@@ -75,7 +82,15 @@ class Section(object):
         order.sort()
         for algo in order:
             algos += " %s" % algo.upper()
-        entry = "Name: %s\n" % self.name
+        entry = ''
+        name = "Name: %s" % self.name
+        # See https://bugzilla.mozilla.org/show_bug.cgi?id=841569#c35
+        while name:
+            entry += name[:72]
+            name = name[72:]
+            if name:
+                entry += "\n "
+        entry += "\n"
         entry += "Digest-Algorithms:%s\n" % algos
         for algo in order:
             entry += "%s-Digest: %s\n" % (algo.upper(),
@@ -100,14 +115,37 @@ class Manifest(list):
             fest = StringIO(buf)
         kwargs = {}
         items = []
-        item = None
-        for line in fest.readlines():
-            line = line.strip()
-            if line == '':
+        item = {}
+        header = ''  # persistent and used for accreting continuations
+        lineno = 0
+        # JAR spec requires two newlines at the end of a buffer to be parsed
+        # and states that they should be appended if necessary.  Just throw
+        # two newlines on every time because it won't hurt anything.
+        for line in itertools.chain(fest.readlines(), "\n" * 2):
+            lineno += 1
+            line = line.rstrip()
+            if len(line) > 72:
+                raise ParsingError("Manifest parsing error: line too long "
+                                   "(%d)" % lineno)
+            # End of section
+            if not line:
+                if item:
+                    items.append(Section(item.pop('name'), **item))
+                    item = {}
+                header = ''
+                continue
+            # continuation?
+            continued = continuation_re.match(line)
+            if continued:
+                if not header:
+                    raise ParsingError("Manifest parsing error: continued line"
+                                       " without previous header! Line number"
+                                       " %d" % lineno)
+                item[header] += continued.group(1)
                 continue
             match = headers_re.match(line)
             if not match:
-                continue
+                raise ParsingError("Unrecognized line format: \"%s\"" % line)
             header = match.group(1).lower()
             value = match.group(2)
             if '-version' == header[-8:]:
@@ -120,17 +158,17 @@ class Manifest(list):
                     kwargs['digest_manifests'] = {}
                 kwargs['digest_manifests'][header[:-16]] = b64decode(value)
             elif 'name' == header:
-                if item is not None:
-                    items.append(item)
                 if directory_re.search(value):
                     continue
-                item = Section(value)
+                item['name'] = value
                 continue
             elif 'digest-algorithms' == header:
-                item.algos = tuple(re.split('\s*', value.lower()))
+                item['algos'] = tuple(re.split('\s*', value.lower()))
                 continue
             elif '-digest' == header[-7:]:
-                item.digests[header[:-7]] = b64decode(value)
+                if not 'digests' in item:
+                    item['digests'] = {}
+                item['digests'][header[:-7]] = b64decode(value)
                 continue
         if len(kwargs):
             return klass(items, **kwargs)

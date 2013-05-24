@@ -268,6 +268,9 @@ class JarExtractor(object):
         if not outpath:
             raise IOError("No output file specified")
 
+        if os.path.exists(outpath):
+            raise IOError("File already exists: %s" % outpath)
+
         with ZipFile(self.inpath, 'r') as zin:
             with ZipFile(outpath, 'w', zipfile.ZIP_DEFLATED) as zout:
                 # zigbert.rsa *MUST* be the first file in the archive to take

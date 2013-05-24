@@ -215,7 +215,8 @@ class JarExtractor(object):
     Can also generate a new signed archive, if given a PKCS#7 signature
     """
 
-    def __init__(self, path, outpath=None, omit_signature_sections=False):
+    def __init__(self, path, outpath=None, ids=None,
+                 omit_signature_sections=False):
         """
         """
         self.inpath = path
@@ -226,14 +227,19 @@ class JarExtractor(object):
         self._manifest = None
         self._sig = None
 
+        self.ids = ids
+        def mksection(data, fname):
+            digests = _digest(data)
+            item = Section(fname, algos=tuple(digests.keys()),
+                           digests=digests)
+            self._digests.append(item)
         with ZipFile(self.inpath, 'r') as zin:
             for f in sorted(zin.filelist, key=file_key):
                 if directory_re.search(f.filename):
                     continue
-                digests = _digest(zin.read(f.filename))
-                item = Section(f.filename, algos=tuple(digests.keys()),
-                               digests=digests)
-                self._digests.append(item)
+                mksection(zin.read(f.filename), f.filename)
+            if ids:
+                mksection(ids, 'META-INF/ids.json')
 
     def _sign(self, item):
         digests = _digest(str(item))
@@ -277,6 +283,8 @@ class JarExtractor(object):
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
                 zout.writestr("META-INF/zigbert.sf", str(self.signatures))
+                if self.ids is not None:
+                    zout.writestr('META-INF/ids.json', self.ids)
 
 
 class JarSigner(object):

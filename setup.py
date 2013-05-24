@@ -10,7 +10,7 @@ with open(os.path.join(here, 'README.md')) as f:
 
 
 setup(name='signing_clients',
-    version='0.1.4',
+    version='0.1.6',
     description="Applications signature/manifest manipulator and receipt verifier",
     long_description=README,
     classifiers=[

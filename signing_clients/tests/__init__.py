@@ -1,3 +1,4 @@
+# coding=utf-8
 # ***** BEGIN LICENSE BLOCK *****
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -74,6 +75,16 @@ MD5-Digest: 9bU/UEp83EbO/DWN3Ds/cg==
 SHA1-Digest: lIbbwE8/2LFOD00+bJ/Wu80lR/I=
 """
 
+# Test for Unicode
+UNICODE_MANIFEST = """Manifest-Version: 1.0
+
+Name: test-dir/súité-höñe.txt
+Digest-Algorithms: MD5 SHA1
+MD5-Digest: +ZqzWWcMtOrWxs8Xr/tt+A==
+SHA1-Digest: B5HkCxgt6fXNr+dWPwXH2aALVWk=
+"""
+
+
 class SigningTest(unittest.TestCase):
 
     def _extract(self, omit=False):
@@ -112,3 +123,9 @@ class SigningTest(unittest.TestCase):
                                  'signing_clients/tests/test-jar-long-path-signed.jar',
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), VERY_LONG_MANIFEST)
+
+    def test_08_unicode(self):
+        extracted = JarExtractor('signing_clients/tests/test-jar-unicode.zip',
+                                 'signing_clients/tests/test-jar-unicode-signed.jar',
+                                 omit_signature_sections=False)
+        self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)

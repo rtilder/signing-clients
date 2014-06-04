@@ -83,7 +83,16 @@ class Section(object):
         for algo in order:
             algos += " %s" % algo.upper()
         entry = ''
-        name = "Name: %s" % self.name
+        # The spec for zip files only supports extended ASCII and UTF-8
+        # See http://www.pkware.com/documents/casestudies/APPNOTE.TXT
+        # and search for "language encoding" for details
+        #
+        # See https://bugzilla.mozilla.org/show_bug.cgi?id=1013347
+        if isinstance(self.name, unicode):
+            name = self.name.encode("utf-8")
+        else:
+            name = self.name
+        name = "Name: %s" % name
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=841569#c35
         while name:
             entry += name[:72]

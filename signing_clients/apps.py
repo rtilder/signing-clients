@@ -292,6 +292,13 @@ class JarExtractor(object):
                 # advantage of Firefox's optimized downloading of XPIs
                 zout.writestr("META-INF/zigbert.rsa", signature)
                 for f in sorted(zin.infolist()):
+                    # Make sure we exclude any of our signature and manifest
+                    # files
+                    if f.filename in ("META-INF/manifest.mf",
+                                      "META-INF/zigbert.sf",
+                                      "META-INF/zigbert.rsa",
+                                      "META-INF/ids.json"):
+                        continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
                 zout.writestr("META-INF/zigbert.sf", str(self.signatures))

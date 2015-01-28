@@ -7,7 +7,12 @@
 
 import unittest
 
-from signing_clients.apps import Manifest, JarExtractor, ParsingError
+from signing_clients.apps import (
+    Manifest,
+    JarExtractor,
+    ParsingError,
+    get_signature_serial_number
+)
 
 
 MANIFEST = """Manifest-Version: 1.0
@@ -129,3 +134,11 @@ class SigningTest(unittest.TestCase):
                                  'signing_clients/tests/test-jar-unicode-signed.jar',
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)
+
+    def test_09_serial_number_extraction(self):
+        with open('signing_clients/tests/zigbert.test.pkcs7.der', 'r') as f:
+            serialno = get_signature_serial_number(f.read())
+        # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
+        # The signing service returns a Python time.time() value multiplied
+        # by 1000 to get a (hopefully) truly unique serial number
+        self.assertEqual(1421953342960, serialno)

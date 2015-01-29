@@ -12,8 +12,10 @@ import os.path
 import re
 import zipfile
 
-from M2Crypto.BIO import MemoryBuffer
-from M2Crypto.SMIME import SMIME, PKCS7_DETACHED, PKCS7_BINARY
+from M2Crypto.BIO import BIOError, MemoryBuffer
+from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
+from M2Crypto.X509 import X509_Stack
+from M2Crypto.m2 import pkcs7_read_bio_der
 
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
@@ -323,3 +325,23 @@ class JarSigner(object):
         pkcs7_buffer = MemoryBuffer()
         pkcs7.write_der(pkcs7_buffer)
         return pkcs7
+
+
+# This is basically a dumbed down version of M2Crypto.SMIME.load_pkcs7 but
+# that reads DER instead of only PEM formatted files
+def get_signature_serial_number(pkcs7):
+    """
+    Extracts the serial number out of a DER formatted, detached PKCS7
+    signature buffer
+    """
+    pkcs7_buf = MemoryBuffer(pkcs7)
+    if pkcs7_buf is None:
+        raise BIOError(Err.get_error())
+
+    p7_ptr = pkcs7_read_bio_der(pkcs7_buf.bio)
+    p = PKCS7(p7_ptr, 1)
+    
+    # Fetch the certificate stack that is the list of signers
+    # Since there should only be one in this use case, take the zeroth
+    # cert in the stack and return its serial number
+    return p.get0_signers(X509_Stack())[0].get_serial_number()

@@ -32,6 +32,11 @@ headers_re = re.compile(
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
 
+RESIGN_IGNORE = ("META-INF/manifest.mf",
+                 "META-INF/zigbert.sf",
+                 "META-INF/zigbert.rsa",
+                 "META-INF/ids.json")
+
 # Python 2.6 and earlier doesn't have context manager support
 ZipFile = zipfile.ZipFile
 if not hasattr(zipfile.ZipFile, "__enter__"):
@@ -252,7 +257,10 @@ class JarExtractor(object):
             self._digests.append(item)
         with ZipFile(self.inpath, 'r') as zin:
             for f in sorted(zin.filelist, key=file_key):
-                if directory_re.search(f.filename):
+                # Skip directories and specific files found in META-INF/ that
+                # are not permitted in the manifest
+                if (directory_re.search(f.filename)
+                        or f.filename in RESIGN_IGNORE):
                     continue
                 mksection(zin.read(f.filename), f.filename)
             if ids:
@@ -302,10 +310,7 @@ class JarExtractor(object):
                 for f in sorted(zin.infolist()):
                     # Make sure we exclude any of our signature and manifest
                     # files
-                    if f.filename in ("META-INF/manifest.mf",
-                                      "META-INF/zigbert.sf",
-                                      "META-INF/zigbert.rsa",
-                                      "META-INF/ids.json"):
+                    if filename in RESIGN_IGNORE:
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))

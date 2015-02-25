@@ -18,6 +18,11 @@ from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
 from M2Crypto.X509 import X509_Stack
 from M2Crypto.m2 import pkcs7_read_bio_der
 
+# Lame hack to take advantage of a not well known OpenSSL flag.  This omits
+# the S/MIME capabilities when generating a PKCS#7 signature.  If included,
+# XPI signature verification breaks.
+PKCS7_NOSMIMECAP = 0x200
+
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
           |Name
@@ -322,7 +327,8 @@ class JarSigner(object):
     def sign(self, data):
         # XPI signing is JAR signing which uses PKCS7 detached signatures
         pkcs7 = self.smime.sign(MemoryBuffer(data),
-                                PKCS7_DETACHED | PKCS7_BINARY)
+                                PKCS7_DETACHED | PKCS7_BINARY
+                                | PKCS7_NOSMIMECAP)
         pkcs7_buffer = MemoryBuffer()
         pkcs7.write_der(pkcs7_buffer)
         return pkcs7

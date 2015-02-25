@@ -5,6 +5,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 # ***** END LICENSE BLOCK *****
 
+import os.path
 import unittest
 
 from signing_clients.apps import (
@@ -90,11 +91,15 @@ SHA1-Digest: B5HkCxgt6fXNr+dWPwXH2aALVWk=
 """
 
 
+def test_file(fname):
+    return os.path.join(os.path.dirname(__file__), fname)
+
+
 class SigningTest(unittest.TestCase):
 
     def _extract(self, omit=False):
-        return JarExtractor('signing_clients/tests/test-jar.zip',
-                            'signing_clients/tests/test-jar-signed.jar',
+        return JarExtractor(test_file('test-jar.zip'),
+                            test_file('test-jar-signed.jar'),
                             omit_signature_sections=omit)
 
     def test_00_extractor(self):
@@ -124,21 +129,30 @@ class SigningTest(unittest.TestCase):
         self.assertRaises(ParsingError, Manifest.parse, BROKEN_MANIFEST)
 
     def test_07_wrapping(self):
-        extracted = JarExtractor('signing_clients/tests/test-jar-long-path.zip',
-                                 'signing_clients/tests/test-jar-long-path-signed.jar',
+        extracted = JarExtractor(test_file('test-jar-long-path.zip'),
+                                 test_file('test-jar-long-path-signed.jar'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), VERY_LONG_MANIFEST)
 
     def test_08_unicode(self):
-        extracted = JarExtractor('signing_clients/tests/test-jar-unicode.zip',
-                                 'signing_clients/tests/test-jar-unicode-signed.jar',
+        extracted = JarExtractor(test_file('test-jar-unicode.zip'),
+                                 test_file('test-jar-unicode-signed.jar'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)
 
     def test_09_serial_number_extraction(self):
-        with open('signing_clients/tests/zigbert.test.pkcs7.der', 'r') as f:
+        with open(test_file('zigbert.test.pkcs7.der'), 'r') as f:
             serialno = get_signature_serial_number(f.read())
         # Signature occured on Thursday, January 22nd 2015 at 11:02:22am PST
         # The signing service returns a Python time.time() value multiplied
         # by 1000 to get a (hopefully) truly unique serial number
         self.assertEqual(1421953342960, serialno)
+
+    def test_10_resigning_manifest_exclusions(self):
+        # This zip contains META-INF/manifest.mf, META-INF/zigbert.sf, and
+        # META-INF/zigbert.rsa in addition to the contents of the basic test
+        # archive test-jar.zip
+        extracted = JarExtractor(test_file('test-jar-meta-inf-exclude.zip'),
+                                 test_file('test-jar-meta-inf-exclude-foo.zip'),
+                                 omit_signature_sections=True)
+        self.assertEqual(str(extracted.manifest), MANIFEST)

@@ -12,10 +12,16 @@ import os.path
 import re
 import zipfile
 
+from M2Crypto import Err
 from M2Crypto.BIO import BIOError, MemoryBuffer
 from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
 from M2Crypto.X509 import X509_Stack
 from M2Crypto.m2 import pkcs7_read_bio_der
+
+# Lame hack to take advantage of a not well known OpenSSL flag.  This omits
+# the S/MIME capabilities when generating a PKCS#7 signature.  If included,
+# XPI signature verification breaks.
+PKCS7_NOSMIMECAP = 0x200
 
 headers_re = re.compile(
     r"""^((?:Manifest|Signature)-Version
@@ -25,6 +31,11 @@ headers_re = re.compile(
           \s*:\s*(.*)""", re.X | re.I)
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
+
+RESIGN_IGNORE = ("META-INF/manifest.mf",
+                 "META-INF/zigbert.sf",
+                 "META-INF/zigbert.rsa",
+                 "META-INF/ids.json")
 
 # Python 2.6 and earlier doesn't have context manager support
 ZipFile = zipfile.ZipFile
@@ -246,7 +257,10 @@ class JarExtractor(object):
             self._digests.append(item)
         with ZipFile(self.inpath, 'r') as zin:
             for f in sorted(zin.filelist, key=file_key):
-                if directory_re.search(f.filename):
+                # Skip directories and specific files found in META-INF/ that
+                # are not permitted in the manifest
+                if (directory_re.search(f.filename)
+                        or f.filename in RESIGN_IGNORE):
                     continue
                 mksection(zin.read(f.filename), f.filename)
             if ids:
@@ -296,10 +310,7 @@ class JarExtractor(object):
                 for f in sorted(zin.infolist()):
                     # Make sure we exclude any of our signature and manifest
                     # files
-                    if f.filename in ("META-INF/manifest.mf",
-                                      "META-INF/zigbert.sf",
-                                      "META-INF/zigbert.rsa",
-                                      "META-INF/ids.json"):
+                    if filename in RESIGN_IGNORE:
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
@@ -321,7 +332,8 @@ class JarSigner(object):
     def sign(self, data):
         # XPI signing is JAR signing which uses PKCS7 detached signatures
         pkcs7 = self.smime.sign(MemoryBuffer(data),
-                                PKCS7_DETACHED | PKCS7_BINARY)
+                                PKCS7_DETACHED | PKCS7_BINARY
+                                | PKCS7_NOSMIMECAP)
         pkcs7_buffer = MemoryBuffer()
         pkcs7.write_der(pkcs7_buffer)
         return pkcs7
@@ -340,7 +352,7 @@ def get_signature_serial_number(pkcs7):
 
     p7_ptr = pkcs7_read_bio_der(pkcs7_buf.bio)
     p = PKCS7(p7_ptr, 1)
-    
+
     # Fetch the certificate stack that is the list of signers
     # Since there should only be one in this use case, take the zeroth
     # cert in the stack and return its serial number

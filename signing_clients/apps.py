@@ -12,6 +12,7 @@ import os.path
 import re
 import zipfile
 
+from M2Crypto import Err
 from M2Crypto.BIO import BIOError, MemoryBuffer
 from M2Crypto.SMIME import SMIME, PKCS7, PKCS7_DETACHED, PKCS7_BINARY
 from M2Crypto.X509 import X509_Stack
@@ -340,7 +341,7 @@ def get_signature_serial_number(pkcs7):
 
     p7_ptr = pkcs7_read_bio_der(pkcs7_buf.bio)
     p = PKCS7(p7_ptr, 1)
-    
+
     # Fetch the certificate stack that is the list of signers
     # Since there should only be one in this use case, take the zeroth
     # cert in the stack and return its serial number

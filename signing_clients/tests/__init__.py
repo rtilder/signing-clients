@@ -103,10 +103,8 @@ def test_file(fname):
 class SigningTest(unittest.TestCase):
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def cleanUp(self):
-        shutil.rmtree(self.tmpdir)
+        self.tmpdir = tempfile.mkdtemp(prefix='tmp-signing-clients-test-')
+        self.addCleanup(lambda: shutil.rmtree(self.tmpdir))
 
     def tmp_file(self, fname):
         return os.path.join(self.tmpdir, fname)

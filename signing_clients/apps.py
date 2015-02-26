@@ -310,7 +310,7 @@ class JarExtractor(object):
                 for f in sorted(zin.infolist()):
                     # Make sure we exclude any of our signature and manifest
                     # files
-                    if filename in RESIGN_IGNORE:
+                    if f.filename in RESIGN_IGNORE:
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))

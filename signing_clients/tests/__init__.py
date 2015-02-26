@@ -6,12 +6,17 @@
 # ***** END LICENSE BLOCK *****
 
 import os.path
+import sha
+import shutil
+import tempfile
 import unittest
 
 from signing_clients.apps import (
     Manifest,
     JarExtractor,
     ParsingError,
+    ZipFile,
+    file_key,
     get_signature_serial_number
 )
 
@@ -97,9 +102,17 @@ def test_file(fname):
 
 class SigningTest(unittest.TestCase):
 
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def cleanUp(self):
+        shutil.rmtree(self.tmpdir)
+
+    def tmp_file(self, fname):
+        return os.path.join(self.tmpdir, fname)
+
     def _extract(self, omit=False):
         return JarExtractor(test_file('test-jar.zip'),
-                            test_file('test-jar-signed.jar'),
                             omit_signature_sections=omit)
 
     def test_00_extractor(self):
@@ -130,13 +143,11 @@ class SigningTest(unittest.TestCase):
 
     def test_07_wrapping(self):
         extracted = JarExtractor(test_file('test-jar-long-path.zip'),
-                                 test_file('test-jar-long-path-signed.jar'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), VERY_LONG_MANIFEST)
 
     def test_08_unicode(self):
         extracted = JarExtractor(test_file('test-jar-unicode.zip'),
-                                 test_file('test-jar-unicode-signed.jar'),
                                  omit_signature_sections=False)
         self.assertEqual(str(extracted.manifest), UNICODE_MANIFEST)
 
@@ -153,6 +164,32 @@ class SigningTest(unittest.TestCase):
         # META-INF/zigbert.rsa in addition to the contents of the basic test
         # archive test-jar.zip
         extracted = JarExtractor(test_file('test-jar-meta-inf-exclude.zip'),
-                                 test_file('test-jar-meta-inf-exclude-foo.zip'),
                                  omit_signature_sections=True)
         self.assertEqual(str(extracted.manifest), MANIFEST)
+
+    # TODO: Calculate the signature on the fly and verify it appropriately.
+    #       Much more readily done in trunion source when signing-clients is
+    #       merged there.
+    def test_11_make_signed(self):
+        extracted = JarExtractor(test_file('test-jar.zip'),
+                                 omit_signature_sections=True)
+        # Not a valid signature but a PKCS7 data blob, at least
+        with open(test_file('zigbert.test.pkcs7.der'), 'r') as f:
+            signature = f.read()
+            signature_digest = sha.new(signature)
+        signed_file = self.tmp_file('test-jar-signed.zip')
+        extracted.make_signed(signature, signed_file)
+        # Now verify the signed zipfile's contents
+        with ZipFile(signed_file, 'r') as zin:
+            # sorted(...) should result in the following order:
+            files = ['test-file', 'META-INF/manifest.mf',
+                     'META-INF/zigbert.rsa', 'META-INF/zigbert.sf',
+                     'test-dir/', 'test-dir/nested-test-file']
+            zfiles = [ f.filename for f in sorted(zin.filelist, key=file_key)]
+            self.assertEqual(files, zfiles)
+            zip_sig_digest = sha.new(zin.read('META-INF/zigbert.rsa'))
+            self.assertEqual(signature_digest.hexdigest(),
+                             zip_sig_digest.hexdigest())
+        # And make sure the manifest is correct
+        signed = JarExtractor(signed_file, omit_signature_sections=True)
+        self.assertEqual(str(extracted.manifest), str(signed.manifest))

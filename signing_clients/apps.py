@@ -4,13 +4,15 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 # ***** END LICENSE BLOCK *****
 
-from base64 import b64encode, b64decode
-from cStringIO import StringIO
+import fnmatch
 import hashlib
 import itertools
 import os.path
 import re
 import zipfile
+
+from base64 import b64encode, b64decode
+from cStringIO import StringIO
 
 from M2Crypto import Err
 from M2Crypto.BIO import BIOError, MemoryBuffer
@@ -32,11 +34,6 @@ headers_re = re.compile(
 continuation_re = re.compile(r"""^ (.*)""", re.I)
 directory_re = re.compile(r"[\\/]$")
 
-RESIGN_IGNORE = ("META-INF/manifest.mf",
-                 "META-INF/zigbert.sf",
-                 "META-INF/zigbert.rsa",
-                 "META-INF/ids.json")
-
 # Python 2.6 and earlier doesn't have context manager support
 ZipFile = zipfile.ZipFile
 if not hasattr(zipfile.ZipFile, "__enter__"):
@@ -49,6 +46,25 @@ if not hasattr(zipfile.ZipFile, "__enter__"):
 
 class ParsingError(Exception):
     pass
+
+
+def ignore_certain_metainf_files(filename):
+    """
+    We do not support multiple signatures in XPI signing because the client
+    side code makes some pretty reasonable assumptions about a single signature
+    on any given JAR.  This function returns True if the file name given is one
+    that we dispose of to prevent multiple signatures.
+    """
+    ignore = ("META-INF/manifest.mf",
+              "META-INF/*.sf",
+              "META-INF/*.rsa",
+              "META-INF/*.dsa",
+              "META-INF/ids.json")
+
+    for glob in ignore:
+        if fnmatch.fnmatch(filename, glob):
+            return True
+    return False
 
 
 def file_key(zinfo):
@@ -212,6 +228,7 @@ class Manifest(list):
 class Signature(Manifest):
     omit_individual_sections = True
     digest_manifests = {}
+    filename = 'zigbert'
 
     @property
     def digest_manifest(self):
@@ -260,7 +277,7 @@ class JarExtractor(object):
                 # Skip directories and specific files found in META-INF/ that
                 # are not permitted in the manifest
                 if (directory_re.search(f.filename)
-                        or f.filename in RESIGN_IGNORE):
+                        or ignore_certain_metainf_files(f.filename)):
                     continue
                 mksection(zin.read(f.filename), f.filename)
             if ids:
@@ -279,9 +296,9 @@ class JarExtractor(object):
 
     @property
     def signatures(self):
-        # The META-INF/zigbert.sf file contains hashes of the individual
-        # sections of the the META-INF/manifest.mf file.  So we generate that
-        # here
+        # The META-INF/*.sf files should contain hashes of the individual
+        # sections of the the META-INF/manifest.mf file.  So we generate those
+        # signatures here
         if not self._sig:
             self._sig = Signature([self._sign(f) for f in self._digests],
                                   digest_manifests=_digest(str(self.manifest)),
@@ -294,7 +311,7 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + "\n"
 
-    def make_signed(self, signature, outpath=None):
+    def make_signed(self, signature, outpath=None, sigpath=None):
         outpath = outpath or self.outpath
         if not outpath:
             raise IOError("No output file specified")
@@ -302,19 +319,26 @@ class JarExtractor(object):
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
+        sigpath = sigpath or signature.filename
+        # Normalize to a simple filename with no extension or prefixed
+        # directory
+        sigpath = os.path.splitext(os.path.basename(sigpath))[0]
+        sigpath = os.path.join('META-INF', sigpath)
+
         with ZipFile(self.inpath, 'r') as zin:
             with ZipFile(outpath, 'w', zipfile.ZIP_DEFLATED) as zout:
-                # zigbert.rsa *MUST* be the first file in the archive to take
-                # advantage of Firefox's optimized downloading of XPIs
-                zout.writestr("META-INF/zigbert.rsa", signature)
+                # The PKCS7 file("foo.rsa") *MUST* be the first file in the
+                # archive to take advantage of Firefox's optimized downloading
+                # of XPIs
+                zout.writestr("%s.rsa" % sigpath, signature)
                 for f in sorted(zin.infolist()):
                     # Make sure we exclude any of our signature and manifest
                     # files
-                    if f.filename in RESIGN_IGNORE:
+                    if ignore_certain_metainf_files(f.filename):
                         continue
                     zout.writestr(f, zin.read(f.filename))
                 zout.writestr("META-INF/manifest.mf", str(self.manifest))
-                zout.writestr("META-INF/zigbert.sf", str(self.signatures))
+                zout.writestr("%s.sf" % sigpath, str(self.signatures))
                 if self.ids is not None:
                     zout.writestr('META-INF/ids.json', self.ids)
 

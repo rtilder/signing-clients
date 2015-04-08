@@ -309,7 +309,7 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + "\n"
 
-    def make_signed(self, signature, outpath=None, sigpath='signature'):
+    def make_signed(self, signature, outpath=None, sigpath='zigbert'):
         outpath = outpath or self.outpath
         if not outpath:
             raise IOError("No output file specified")

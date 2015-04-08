@@ -176,16 +176,18 @@ class SigningTest(unittest.TestCase):
             signature = f.read()
             signature_digest = sha.new(signature)
         signed_file = self.tmp_file('test-jar-signed.zip')
-        extracted.make_signed(signature, signed_file)
+        sigpath = 'zoidberg'
+        extracted.make_signed(signature, signed_file, sigpath=sigpath)
         # Now verify the signed zipfile's contents
         with ZipFile(signed_file, 'r') as zin:
             # sorted(...) should result in the following order:
             files = ['test-file', 'META-INF/manifest.mf',
-                     'META-INF/zigbert.rsa', 'META-INF/zigbert.sf',
+                     'META-INF/%s.rsa' % sigpath,
+                     'META-INF/%s.sf' % sigpath,
                      'test-dir/', 'test-dir/nested-test-file']
             zfiles = [ f.filename for f in sorted(zin.filelist, key=file_key)]
             self.assertEqual(files, zfiles)
-            zip_sig_digest = sha.new(zin.read('META-INF/zigbert.rsa'))
+            zip_sig_digest = sha.new(zin.read('META-INF/%s.rsa' % sigpath))
             self.assertEqual(signature_digest.hexdigest(),
                              zip_sig_digest.hexdigest())
         # And make sure the manifest is correct

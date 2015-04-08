@@ -319,7 +319,7 @@ class JarExtractor(object):
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
-        sigpath = sigpath or signature.filename
+        sigpath = sigpath or self.filename
         # Normalize to a simple filename with no extension or prefixed
         # directory
         sigpath = os.path.splitext(os.path.basename(sigpath))[0]

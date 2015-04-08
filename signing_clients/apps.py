@@ -48,16 +48,18 @@ class ParsingError(Exception):
     pass
 
 
-# We do not support multiple signatures in XPI signing because the client
-# side code makes some pretty reasonable assumptions about a single signature
-# on any given JAR.  This function returns True if the file name given is one
-# that we dispose of to prevent multiple signatures.
 def ignore_certain_metainf_files(filename):
-    ignore  = ("META-INF/manifest.mf",
-               "META-INF/*.sf",
-               "META-INF/*.rsa",
-               "META-INF/*.dsa",
-               "META-INF/ids.json")
+    """
+    We do not support multiple signatures in XPI signing because the client
+    side code makes some pretty reasonable assumptions about a single signature
+    on any given JAR.  This function returns True if the file name given is one
+    that we dispose of to prevent multiple signatures.
+    """
+    ignore = ("META-INF/manifest.mf",
+              "META-INF/*.sf",
+              "META-INF/*.rsa",
+              "META-INF/*.dsa",
+              "META-INF/ids.json")
 
     for glob in ignore:
         if fnmatch.fnmatch(filename, glob):
@@ -226,7 +228,7 @@ class Manifest(list):
 class Signature(Manifest):
     omit_individual_sections = True
     digest_manifests = {}
-    filename = None
+    filename = 'zigbert'
 
     @property
     def digest_manifest(self):
@@ -309,7 +311,7 @@ class JarExtractor(object):
         # section signatures
         return self.signatures.header + "\n"
 
-    def make_signed(self, signature, outpath=None, sigpath='zigbert'):
+    def make_signed(self, signature, outpath=None, sigpath=None):
         outpath = outpath or self.outpath
         if not outpath:
             raise IOError("No output file specified")
@@ -317,7 +319,7 @@ class JarExtractor(object):
         if os.path.exists(outpath):
             raise IOError("File already exists: %s" % outpath)
 
-        sigpath = sigpath  or signature.filename
+        sigpath = sigpath or signature.filename
         # Normalize to a simple filename with no extension or prefixed
         # directory
         sigpath = os.path.splitext(os.path.basename(sigpath))[0]

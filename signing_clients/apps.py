@@ -138,6 +138,9 @@ class Section(object):
 
 class Manifest(list):
     version = '1.0'
+    # Older versions of Firefox crash if a JAR manifest style file doesn't
+    # end in a blank line("\n\n").  For more details see:
+    # https://bugzilla.mozilla.org/show_bug.cgi?id=1158467
     extra_newline = False
 
     def __init__(self, *args, **kwargs):
@@ -241,7 +244,7 @@ class Signature(Manifest):
 
     @property
     def header(self):
-        segments = [str(super(Signature, self).header), ]
+        segments = [str(super(Signature, self).header)]
         segments.extend(self.digest_manifest)
         if self.extra_newline:
             segments.append("")

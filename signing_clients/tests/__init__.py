@@ -21,9 +21,7 @@ from signing_clients.apps import (
 )
 
 
-MANIFEST = """Manifest-Version: 1.0
-
-Name: test-file
+MANIFEST_BODY = """Name: test-file
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: 5BXJnAbD0DzWPCj6Ve/16w==
 SHA1-Digest: 5Hwcbg1KaPMqjDAXV/XDq/f30U0=
@@ -34,13 +32,14 @@ MD5-Digest: 53dwfEn/GnFiWp0NQyqWlA==
 SHA1-Digest: 4QzlrC8QyhQW1T0/Nay5kRr3gVo=
 """
 
+MANIFEST = "Manifest-Version: 1.0\n\n" + MANIFEST_BODY
+
 SIGNATURE = """Signature-Version: 1.0
 MD5-Digest-Manifest: dughN2Z8uP3eXIZm7GVpjA==
 SHA1-Digest-Manifest: rnDwKcEuRYqy57DFyzwK/Luul+0=
 """
 
-SIGNATURES = SIGNATURE + """
-Name: test-file
+SIGNATURES_BODY = """Name: test-file
 Digest-Algorithms: MD5 SHA1
 MD5-Digest: jf86A0RSFH3oREWLkRAoIg==
 SHA1-Digest: 9O+Do4sVlAh82x9ZYu1GbtyNToA=
@@ -50,6 +49,16 @@ Digest-Algorithms: MD5 SHA1
 MD5-Digest: YHTqD4SINsoZngWvbGIhAA==
 SHA1-Digest: lys436ZGYKrHY6n57Iy/EyF5FuI=
 """
+
+SIGNATURES = SIGNATURE + "\n" + SIGNATURES_BODY
+
+EXTRA_NEWLINE_SIGNATURE = """Signature-Version: 1.0
+MD5-Digest-Manifest: A3IkNTcP2L6JzwQzkp+6Kg==
+SHA1-Digest-Manifest: xQKf9C1JcIjfZoFxTWt3pzW2KYI=
+
+"""
+
+EXTRA_NEWLINE_SIGNATURES = EXTRA_NEWLINE_SIGNATURE + "\n" + SIGNATURES_BODY + "\n"  # noqa
 
 CONTINUED_MANIFEST = MANIFEST + """
 Name: test-dir/nested-test-dir/nested-test-dir/nested-test-dir/nested-te
@@ -109,9 +118,10 @@ class SigningTest(unittest.TestCase):
     def tmp_file(self, fname):
         return os.path.join(self.tmpdir, fname)
 
-    def _extract(self, omit=False):
+    def _extract(self, omit=False, newlines=False):
         return JarExtractor(test_file('test-jar.zip'),
-                            omit_signature_sections=omit)
+                            omit_signature_sections=omit,
+                            extra_newlines=newlines)
 
     def test_00_extractor(self):
         self.assertTrue(isinstance(self._extract(), JarExtractor))
@@ -119,14 +129,20 @@ class SigningTest(unittest.TestCase):
     def test_01_manifest(self):
         extracted = self._extract()
         self.assertEqual(str(extracted.manifest), MANIFEST)
+        extracted = self._extract(newlines=True)
+        self.assertEqual(str(extracted.manifest), MANIFEST + "\n")
 
     def test_02_signature(self):
         extracted = self._extract()
         self.assertEqual(str(extracted.signature), SIGNATURE)
+        extracted = self._extract(newlines=True)
+        self.assertEqual(str(extracted.signature), EXTRA_NEWLINE_SIGNATURE)
 
     def test_03_signatures(self):
         extracted = self._extract()
         self.assertEqual(str(extracted.signatures), SIGNATURES)
+        extracted = self._extract(newlines=True)
+        self.assertEqual(str(extracted.signatures), EXTRA_NEWLINE_SIGNATURES)
 
     def test_04_signatures_omit(self):
         extracted = self._extract(True)

@@ -62,7 +62,9 @@ def ignore_certain_metainf_files(filename):
               "META-INF/ids.json")
 
     for glob in ignore:
-        if fnmatch.fnmatch(filename, glob):
+        # Explicitly match against all upper case to prevent the kind of
+        # runtime errors that lead to https://bugzil.la/1169574
+        if fnmatch.fnmatchcase(filename.upper(), glob.upper()):
             return True
     return False
 

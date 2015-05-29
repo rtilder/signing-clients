@@ -17,7 +17,8 @@ from signing_clients.apps import (
     ParsingError,
     ZipFile,
     file_key,
-    get_signature_serial_number
+    get_signature_serial_number,
+    ignore_certain_metainf_files
 )
 
 
@@ -209,3 +210,10 @@ class SigningTest(unittest.TestCase):
         # And make sure the manifest is correct
         signed = JarExtractor(signed_file, omit_signature_sections=True)
         self.assertEqual(str(extracted.manifest), str(signed.manifest))
+
+    # See https://bugzil.la/1169574
+    def test_12_metainf_case_sensitivity(self):
+        self.assertTrue(ignore_certain_metainf_files('meta-inf/manifest.mf'))
+        self.assertTrue(ignore_certain_metainf_files('MeTa-InF/MaNiFeSt.Mf'))
+        self.assertFalse(ignore_certain_metainf_files('meta-inf/pickles.mf'))
+
